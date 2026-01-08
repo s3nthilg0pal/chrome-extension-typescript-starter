@@ -1,0 +1,31 @@
+services:
+  media-torrent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.combined
+    container_name: media-torrent-api
+    ports:
+      - "9000:8000"  # Python Media Name Extractor API (external:internal)
+      - "9080:8080"  # Go Torrent API (external:internal)
+    environment:
+      # Ollama configuration for Python API
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://192.168.0.162:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-r1}
+      
+      # Go API configuration
+      - PORT=8080
+      - NAME_EXTRACTOR_URL=http://localhost:8000
+      - QBITTORRENT_URL=${QBITTORRENT_URL}
+      - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - RADARR_URL=${RADARR_URL}
+      - RADARR_API_KEY=${RADARR_API_KEY}
+      - SONARR_URL=${SONARR_URL}
+      - SONARR_API_KEY=${SONARR_API_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

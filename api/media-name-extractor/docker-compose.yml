@@ -1,0 +1,10 @@
+services:
+  media-name-extractor:
+    build: .
+    container_name: media-name-extractor
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://192.168.0.162:11434
+      - OLLAMA_MODEL=gemma3
+    restart: unless-stopped

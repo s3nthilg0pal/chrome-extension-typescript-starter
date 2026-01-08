@@ -1,0 +1,71 @@
+# Combined Dockerfile for Media Name Extractor (Python) + Torrent API (Go)
+# Both services run in a single container using supervisord
+
+# Stage 1: Build Go binary
+FROM golang:1.21-alpine AS go-builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY torrent-api/go.mod torrent-api/go.sum* ./
+RUN go mod download
+
+# Copy source code
+COPY torrent-api/*.go ./
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o torrent-api .
+
+# Stage 2: Final image with Python + Go binary
+FROM python:3.13-slim
+
+# Install supervisor to manage multiple processes
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories
+RUN mkdir -p /app/python-api /app/go-api /var/log/supervisor
+
+WORKDIR /app
+
+# Copy Python app
+COPY media-name-extractor/requirements.txt /app/python-api/
+RUN pip install --no-cache-dir -r /app/python-api/requirements.txt
+
+COPY media-name-extractor/main.py /app/python-api/
+
+# Copy Go binary from builder stage
+COPY --from=go-builder /app/torrent-api /app/go-api/
+
+# Create supervisor configuration
+RUN cat > /etc/supervisor/conf.d/services.conf << 'EOF'
+[supervisord]
+nodaemon=true
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+
+[program:python-api]
+command=uvicorn main:app --host 0.0.0.0 --port 8000
+directory=/app/python-api
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/supervisor/python-api.log
+stderr_logfile=/var/log/supervisor/python-api-error.log
+environment=PYTHONUNBUFFERED=1
+
+[program:go-api]
+command=/app/go-api/torrent-api
+directory=/app/go-api
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/supervisor/go-api.log
+stderr_logfile=/var/log/supervisor/go-api-error.log
+environment=NAME_EXTRACTOR_URL="http://localhost:8000"
+EOF
+
+# Expose both ports
+EXPOSE 8000 8080
+
+# Run supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

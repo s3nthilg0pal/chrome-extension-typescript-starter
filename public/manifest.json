@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
 
-  "name": "Chrome Extension TypeScript Starter",
-  "description": "Chrome Extension, TypeScript, Visual Studio Code",
+  "name": "Media-Grabber",
+  "description": "Grab magnet links and add movies/TV shows to Radarr/Sonarr",
   "version": "1.0",
 
   "options_ui": {
